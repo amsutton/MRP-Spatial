@@ -10,26 +10,33 @@ pacman::p_load(tidyverse, here, INLA, SUMMER,data.table,beepr)
 
 here::i_am("scripts/03_run_models.R")
 
+#### Functions ####
 
 load_data = function(poststrat_vars){
 
   #load geo, dat, spatial graph, and post for analysis
-  load(file = here("data/cleaned_input_data/clean_data_county_with_edu.rda"))
+  
+  #post
   load(file = here("data/cleaned_input_data/clean_postrat_age_sex_county_with_edu.rda"))
-
+  
+  #dat
+  load(file = here("data/cleaned_input_data/clean_data_county_with_edu.rda"))
+  
   dat <<- dat
+  post <<- post
   
   if (str_detect(poststrat_vars,"xfips")) {
+    
+    #geographic data (geo)
     load(file=here("data/cleaned_input_data/ca_geo_sf_county.rda"))
+    
+    #spatial graph
     load(file = here("data/cleaned_input_data/spatialgraph.rda"))
     geo <<- geo
     g.graph <<- g.graph
     
   }
 
-  post <<- post %>%
-    rename(xfips = fips)
-  
   state_choice <<- "CA" #for pulling data from the US Census API with tidycensus
 
 }
@@ -45,11 +52,10 @@ prepare_data = function(dat,post,poststrat_vars){
   
     print("poststrat_vars == xfips,age,edu")
     dat = dat %>% 
-      #filter(sex == models$sex) %>%
       select(xfips,vax,sex,age,edu) 
-    
+
     post = post %>% 
-      #filter(sex == models$sex) %>% 
+      filter(!is.na(edu)) %>% #drop total counts from census by age/sex, no edu
       group_by(xfips,sex,age,edu) %>%
       reframe(
         vax = NA,
@@ -58,10 +64,11 @@ prepare_data = function(dat,post,poststrat_vars){
       ungroup() %>%
       select(vax,everything())
   
-    pred_dat = post %>% select(colnames(dat))
-    #add the empty prediction categories to the bottom of the real data
-    dat = rbind(dat, pred_dat)
     
+    #add the empty prediction categories to the bottom of the real data
+    pred_dat = post %>% select(colnames(dat))
+    dat = rbind(dat, pred_dat)
+
     index = geo %>% select(xfips, id) %>% sf::st_drop_geometry()
     
     dat = left_join(dat, index, by =c("xfips"))
@@ -77,12 +84,11 @@ prepare_data = function(dat,post,poststrat_vars){
     print("poststrat_vars == xfips,age")
     
     dat = dat %>% 
-      #filter(sex == models$sex) %>%
       select(xfips,vax,sex,age) %>%
       distinct()
   
     post = post %>% 
-      #filter(sex == models$sex) %>% 
+      filter(is.na(edu)) %>%
       select(-edu) %>%
       group_by(xfips,sex,age) %>%
       reframe(
@@ -96,7 +102,7 @@ prepare_data = function(dat,post,poststrat_vars){
     
     #add the empty prediction categories to the bottom of the real data
     dat = rbind(dat, pred_dat)
-    
+
     index = geo %>% select(xfips, id) %>% sf::st_drop_geometry()
     
     dat = left_join(dat, index, by =c("xfips"))
@@ -111,12 +117,11 @@ prepare_data = function(dat,post,poststrat_vars){
     print("poststrat_vars == xfips,edu")
    
     dat = dat %>% 
-      #filter(sex == models$sex) %>%
       select(xfips,vax,sex,edu) %>%
       distinct()
     
     post = post %>% 
-      #filter(sex == models$sex) %>% 
+      filter(!is.na(edu)) %>%
       select(-age) %>%
       group_by(xfips,sex,edu) %>%
       reframe(
@@ -143,13 +148,12 @@ prepare_data = function(dat,post,poststrat_vars){
   if (poststrat_vars == "age,edu") {
     
     print("poststrat_vars == age,edu")
-    
+    glimpse(dat)
     dat = dat %>% 
-      #filter(sex == models$sex) %>%
       select(vax,sex,age,edu) 
         
     post = post %>% 
-      #filter(sex == models$sex) %>% 
+      filter(!is.na(edu)) %>%
       select(-xfips) %>%
       group_by(sex,age,edu) %>%
       reframe(
@@ -175,12 +179,11 @@ prepare_data = function(dat,post,poststrat_vars){
     print("poststrat_vars == edu")
     
     dat = dat %>% 
-      #filter(sex == models$sex) %>%
       select(vax,sex,edu) %>%
       distinct()
     
     post = post %>% 
-      #filter(sex == models$sex) %>% 
+      filter(!is.na(edu)) %>%
       select(-xfips, -age) %>%
       group_by(sex,edu) %>%
       reframe(
@@ -205,12 +208,11 @@ prepare_data = function(dat,post,poststrat_vars){
     print("poststrat_vars == age")
     
     dat = dat %>% 
-      #filter(sex == models$sex) %>%
       select(vax,sex,age) %>%
       distinct()
     
     post = post %>% 
-      #filter(sex == models$sex) %>% 
+      filter(is.na(edu)) %>%
       select(-xfips, -edu) %>%
       group_by(sex,age) %>%
       reframe(
@@ -236,11 +238,15 @@ run_save_model = function(mf,dat,sex_spec) {
 
   require(tidyverse,INLA,data.table)
   
-  sim_start = length(mf)+2 #number of covariates + number of outcome variables (1) + 1
+  #number of covariates + number of outcome variables (1) + 1
+  sim_start = length(mf)+2 
   
   #NB: For a spatial model to work, the formula MUST refer to the "id"
-  #built into the spatial graph, NOT a code like xfips. Later, we can join on
-  #xfips, but this will not work without referring to the graph id!
+  #built into the spatial graph, NOT a code like xfips. This is because
+  #it only works with integers -- and xfips aren't (can't be) integers. 
+  #Later, we can join on xfips, but this will not work without referring 
+  #to the graph id!
+  
   model <<- inla(mf, 
                data = dat, 
                family="betabinomial", 
@@ -251,8 +257,7 @@ run_save_model = function(mf,dat,sex_spec) {
                                       dic = TRUE),
                control.predictor = list(compute=TRUE), #would need expit it
                verbose = FALSE)
-  
-  
+
   ###Not sure about this code chunk
   #if (str_detect(as.character(mf), "age +")) {
     model.fixed = as.data.frame(model$summary.fixed)
@@ -357,6 +362,7 @@ posterior_draw = function(model,post,poststrat_vars,pred_dat,dat,sex_spec) {
   
   #leave sims for predictions from post-strat data only -- 
   #get rid of sims for real survey data -- i.e, observations where vax is NA
+  #we know it's right because it's the same length as the post and pred_dat objects
   sims = sims %>% filter(is.na(vax))
 
   # Now poststratify
@@ -369,11 +375,11 @@ posterior_draw = function(model,post,poststrat_vars,pred_dat,dat,sex_spec) {
   if("xfips" %in% colnames(sims)){
   sims = sims %>% 
     group_by(xfips) %>%
-    distinct() %>%
+    distinct %>%
     mutate(N = sum(estimate, na.rm = TRUE),
            N= replace_na(N,0)) %>%
     ungroup() %>%  #ditto -- can't have zeroes for mrp; handles NAs introduced by estimate/zcta_pop; in this case, NA == zero for pop counts
-    select(colnames(dat), estimate, everything())
+    select(colnames(dat),N, estimate, everything())
   }
 
   `%nin%` = Negate(`%in%`)
@@ -398,7 +404,7 @@ poststratify = function(sims,pred_dat,sex_spec){
   options(scipen=999)
 
   temp = pred_dat %>% select(-vax) 
-  colnames(temp)
+
   #mean sim estimation * estimate in stratum /estimate in zcta
   rowmedians <- sims %>%
     group_by(across(colnames(temp))) %>%
@@ -453,7 +459,7 @@ run_sex_specific_steps = function(dat,post,mf,poststrat_vars,pred_dat,sex_spec,x
   #warning about "identity link will be used to compute the fitted values 
   #for NA data" is fine. We leave warnings verbose to catch other issues.
   run_save_model(mf,dat,sex_spec)
-  print(paste0("model ",x,": done running and saving"))
+  print(paste0("model ",x,": done running and saving model"))
   posterior_draw(model,post,poststrat_vars,pred_dat,dat,sex_spec)
   print(paste0("model ",x,": done posterior draw"))
   poststratify(sims,pred_dat,sex_spec)
@@ -484,12 +490,11 @@ run_analysis = function(model_formulae,mod,specs,state_choice,poststrat_vars) {
 
 
 #### Run Full Analysis ####
-#there are 45 uniquely described models, not considering running it for 
-#both sexes (90 models to run total)
-#
+#there are 42 uniquely described models; double it because we're running it for 
+#both sexes (84 models to run total)
+
 #because of the list of formulae and the df of model data, 
 #it's simplest to for-loop
-
 
 #contains two data objects that are ordered meaningfully to represent 
 #the same model by list/row index (i.e., model_formulae[[1]] = models[1,]):
@@ -506,21 +511,24 @@ models$poststrat_vars =
 
 #Warning: this is a bit memory intensive as written.
 #NB: each model runs twice because we run each model for each sex independently.
+#Runtime for the most complex models is less than 50 seconds on 
+#a Macbook Pro 2.4 GHz 8-Core Intel Core i9 with 32GB of memory.
 for (x in 1:nrow(models)) {
 
   print(paste("***","model",x,"***",sep=" "))
   print(Sys.time())
   start.time <- Sys.time()
   
-  mod = models[,]
+  # mod = models[40,]
+  # mf = as.formula(model_formulae[[40]])
+  mod = models[x,]
   mf = as.formula(model_formulae[[x]])
-  specs = as.character(models$specs[x])
+  specs = as.character(mod$specs)
   poststrat_vars =
-    models$poststrat_vars[x] %>%
+    mod$poststrat_vars %>%
     gsub('\"',"",.)
 
-  #reload the clean data (omit geographic data if not a spatial model).
-  #takes maybe half an hour to run depending on your computer.
+  #reload the clean data
   load_data(poststrat_vars)
   
   run_analysis(mf,mod,specs,state_choice,poststrat_vars)

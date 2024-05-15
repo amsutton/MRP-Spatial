@@ -13,19 +13,19 @@ options(tigris_use_cache = TRUE)
 tidycensus::census_api_key(Sys.getenv("CENSUS_API_KEY"), overwrite = FALSE, install = FALSE)
 
 #Only have to run the one time (joins all the modeled results together) 
-# filelist <- list.files(
-#   path = here("data/indirect_estimates/complete_estimates_both_sexes/"), 
-#   full.names = TRUE) # include the directory in the result)
-# 
-# 
-# dat = fs::dir_ls(here("data/indirect_estimates/complete_estimates_both_sexes/"), regexp = "\\.csv$")
-# dat = dat %>% 
-#   map_dfr(read_csv)
-# 
-# save(dat, file = here("data/cleaned_input_data/clean_complete_model_indirect_estimates.rda"))
-#rm(filelist)
+filelist <- list.files(
+  path = here("data/indirect_estimates/complete_estimates_both_sexes/"),
+  full.names = TRUE) # include the directory in the result)
 
-load("data/cleaned_input_data/clean_complete_model_indirect_estimates.rda")
+
+dat = fs::dir_ls(here("data/indirect_estimates/complete_estimates_both_sexes/"), regexp = "\\.csv$")
+dat = dat %>%
+  map_dfr(read_csv)
+
+save(dat, file = here("data/cleaned_input_data/clean_complete_model_indirect_estimates.rda"))
+rm(filelist)
+#load("data/cleaned_input_data/clean_complete_model_indirect_estimates.rda")
+
 
 #load model information for intuitive labeling in figures
 
@@ -201,7 +201,7 @@ cdc_state = cdc %>%
 # 
 test = read.csv(here("/Users/Aja/Documents/R Directories/NSF_RAPID_COVID19_Survey/Aja/COVID_Behaviors/data/smrp/ch2_diss_tables/rollup_state_level_compare_area_models_with_CDC_estimate_counts.csv"))
 #something is rotten here.
-view(dat %>% filter(name == "Alameda",str_detect(model_name,"BYM2")) %>% group_by(xfips,model))
+#view(dat %>% filter(name == "Alameda",str_detect(model_name,"BYM2")) %>% group_by(xfips,model))
 
 temp = dat %>% 
   select(xfips,sex,N) %>% 

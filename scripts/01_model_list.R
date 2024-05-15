@@ -7,6 +7,7 @@ here::i_am("scripts/01_model_list.R")
 
 simple_model_list = list(
   #### IID models ####
+  #this is just a quick, convenient way to think and relabel them
   #random effects
   vax ~ 1 + f(age, iid),
   vax ~ 1 + f(edu, iid),
@@ -185,7 +186,7 @@ models = models %>%
 models =
   models %>%
   mutate(c2name = case_when(c2 == "age" ~ 'age (fixed effect)',
-                            c2 == "education" ~ 'education (fixed effect)',
+                            c2 == "edu" ~ 'education (fixed effect)',
                             c2 == "f(age, iid)" ~ 'age (IID random effect)',
                             c2 == "f(edu, iid)" ~ 'education (IID random effect)',
                             c2 == "f(id, iid)" ~ 'county (IID random effect)',
@@ -197,10 +198,9 @@ models =
                             c2 == "f(id, bym2)" ~ 'county ((BYM2) random effect)',
                             c2 == "f(age, bym2)" ~ 'age ((BYM2) random effect)',
                             c2 == "f(edu, bym2)" ~ 'education ((BYM2) random effect)',
-                            c2 == "edu" ~ "education",
                             TRUE ~ c2),
          c3name = case_when(c3 == "age" ~ 'age (fixed effect)',
-                            c3 == "education" ~ 'education (fixed effect)',
+                            c3 == "edu" ~ 'education (fixed effect)',
                             c3 == "f(age, iid)" ~ 'age (IID random effect)',
                             c3 == "f(edu, iid)" ~ 'education (IID random effect)',
                             c3 == "f(id, iid)" ~ 'county (IID random effect)',
@@ -212,7 +212,6 @@ models =
                             c3 == "f(id, bym2)" ~ 'county ((BYM2) random effect)',
                             c3 == "f(age, bym2)" ~ 'age ((BYM2) random effect)',
                             c3 == "f(edu, bym2)" ~ 'education ((BYM2) random effect)',
-                            c3 == "edu" ~ "education",
                             TRUE ~ c3),
          c4name = case_when(c4 == "f(age, iid)" ~ 'age (IID random effect)',
                             c4 == "f(edu, iid)" ~ 'education (IID random effect)',
@@ -225,7 +224,7 @@ models =
                             c4 == "f(id, bym2)" ~ 'county ((BYM2) random effect)',
                             c4 == "f(age, bym2)" ~ 'age ((BYM2) random effect)',
                             c4 == "f(edu, bym2)" ~ 'education ((BYM2) random effect)',
-                            c4 == "edu" ~ "education",
+                            c4 == "edu" ~ "education (fixed effect)",
                             TRUE ~ c4),
          c2specs = case_when(c2 == "age" ~ 'fixed_age',
                             c2 == "edu" ~ 'fixed_edu',
