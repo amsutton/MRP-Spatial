@@ -15,7 +15,7 @@ options(tigris_use_cache = TRUE)
 
 tidycensus::census_api_key(Sys.getenv("CENSUS_API_KEY"), overwrite = FALSE, install = FALSE)
 
-here::i_am("Aja/COVID_Behaviors/code/dissertation_code/mrp/01_mrp_clean_build_direct_estimates_build_poststrat.R")
+here::i_am("scripts/01_mrp_clean_build_direct_estimates_build_poststrat.R")
 
 
 #### set geographic and model string specifications for intelligent labeling ####
@@ -29,7 +29,7 @@ whole_time_period <- FALSE
 # Note for Dave: these are the data from which you want to estimate your outcome
 # In this case, the CTIS is a survey, and I'm going to be building a poststratification
 # table using the variables below that I relabel in the mutate() call
-ctis <- read.csv(file=here::here("Aja/COVID_Behaviors/data/ctis_data_do_not_share/ctis_w11_2021-06.csv"),
+ctis <- read.csv(file=here::here("data/ctis_data_do_not_share/ctis_w11_2021-06.csv"),
                  header = TRUE, colClasses=c("fips"="character", "A3"="character"))
 
 ctis <- ctis %>%
@@ -344,8 +344,8 @@ nb.r <- poly2nb(pl=geo, row.names=geo$id, queen = T)
 
 #plot
 coords = st_coordinates(st_centroid(st_geometry(geo)))
-plot(st_geometry(geo), border="grey")
-plot(nb.r, coords, add=TRUE)
+plot(st_union(st_geometry(geo)), border="grey")
+plot(nb.r, coords, add=TRUE,pch=19)
 
 
 #make graph readable by INLA; equivalent to nb2mat()

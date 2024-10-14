@@ -214,7 +214,46 @@ direct = direct %>%
          ci = paste(mean_low,mean_upp,sep=", "))
 
 
-write.csv(direct, here("data/direct_estimates/ctis_vax_direct_estimates_not_boostrapped_with_edu.csv"))
+write.csv(direct, here("data/direct_estimates/ctis_vax_direct_estimates_not_bootstrapped_with_edu.csv"))
+
+#simple vax direct estimate
+direct  = c1 |>
+  na.omit() |>
+  as_survey_design(1, weight = weight, variables = c(vax))
+
+direct = direct |>
+  group_by(vax) |>
+  summarize(mean = survey_mean(,var = "ci", na.rm = TRUE, level = 0.95))
+
+
+direct = direct %>%
+  mutate(mean = round(mean, digits = 3),
+         mean_low = round(mean_low, digits = 3),
+         mean_upp = round(mean_upp, digits = 3),
+         ci = paste(mean_low,mean_upp,sep=", "))
+glimpse(direct)
+
+write.csv(direct, here("data/direct_estimates/ctis_vax_direct_estimates_not_bootstrapped_with_edu_simplevax.csv"))
+
+
+#scounty vax direct estimate
+direct  = c1 |>
+  na.omit() |>
+  as_survey_design(1, weight = weight, variables = c(xfips,vax))
+
+direct = direct |>
+  group_by(xfips,vax) |>
+  summarize(mean = survey_mean(,var = "ci", na.rm = TRUE, level = 0.95))
+
+
+direct = direct %>%
+  mutate(mean = round(mean, digits = 3),
+         mean_low = round(mean_low, digits = 3),
+         mean_upp = round(mean_upp, digits = 3),
+         ci = paste(mean_low,mean_upp,sep=", "))
+
+write.csv(direct, here("data/direct_estimates/ctis_vax_direct_estimates_not_bootstrapped_with_edu_simplevax_bycounty.csv"))
+
 
 #Without education
 c1 <- dat 

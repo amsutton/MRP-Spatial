@@ -303,4 +303,5 @@ models = models %>%
 
 
 save(models,model_formulae, file = here("data/cleaned_input_data/model_descriptions.RData"))
-
+load(file = here("data/cleaned_input_data/model_descriptions.RData"))
+view(models)

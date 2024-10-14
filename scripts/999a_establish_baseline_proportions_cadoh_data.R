@@ -21,17 +21,7 @@ tidycensus::census_api_key(Sys.getenv("CENSUS_API_KEY"), overwrite = FALSE, inst
 whole_time_period = TRUE
 
 #### baseline for comparison: CA pop by sex ####
-capop <- get_acs(geography = "state",
-                 state = "CA",
-                 variables = c(
-                   "18_plus_f" ="B05003_019",
-                   "18_plus_m" = "B05003_008"
-                 ),
-                 survey = "acs5",
-                 geometry = FALSE,
-                 year = 2020)
-# sum(capop$estimate)
-# moe_sum(moe = capop$moe, estimate = capop$estimate)
+load(here("data/cleaned_input_data/clean_acs_california_population_estimates.rda"))
 
 
 #### CDC estimates for CA by sex and age (3 categories match with CTIS data) ####

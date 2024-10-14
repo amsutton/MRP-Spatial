@@ -9,7 +9,7 @@
 #Post-stratification of age/sex/education at county level
 #potential secondary post-stratification using urban/rural classification later
 
-pacman::p_load(tidyverse, ggplot2, here, tidycensus, tigris, janitor, viridis)
+pacman::p_load(tidyverse, ggplot2, here, tidycensus, tigris, janitor, viridis,data.table)
 
 here::i_am("scripts/999b_compare_models_including_bym2.R")
 
@@ -20,19 +20,23 @@ tidycensus::census_api_key(Sys.getenv("CENSUS_API_KEY"), overwrite = FALSE, inst
 # #whole time period for Ipsos wave 3 direct estimates (not bootstrapped) or bounded by specific dates?
 # whole_time_period = TRUE
 
-#### baseline for comparison: CA pop by sex and county ####
+#### baseline for comparison: CA pop by sex and county (aged over 18 years) ####
+#### source: ACS (used to produce poststratification table; built in script 02)
+# load(file= here("data/cleaned_input_data/clean_acs_california_population_estimates.rda"))
+
 capop <- get_acs(geography = "county",
-                        state = "CA",
-                        variables = c(
-                          "18_plus_f" ="B05003_019",
-                          "18_plus_m" = "B05003_008"
-                        ),
-                        survey = "acs5",
-                        geometry = FALSE,
-                        year = 2020)
+                 state = "CA",
+                 variables = c(
+                   "18_plus_f" ="B05003_019",
+                   "18_plus_m" = "B05003_008"
+                 ),
+                 survey = "acs5",
+                 geometry = FALSE,
+                 year = 2020)
+
 
 #poststratification data for SAE estimates
-load(file = here("Aja/COVID_Behaviors/data/smrp/clean_postrat_age_sex_county_with_edu.rda"))
+load(file = here("data/cleaned_input_data/clean_postrat_age_sex_county_with_edu.rda"))
 post = post %>%
   mutate(xfips = as.integer(fips)) %>%
   select(-fips)
@@ -40,10 +44,21 @@ post = post %>%
 postpoptotal = post %>% 
   group_by(xfips) %>%
   summarize(estimate = sum(estimate))
-sum(postpoptotal$estimate)
-sum(capop$estimate)
+glimpse(capop)
+capop = capop %>%
+  clean_names %>%
+  mutate(geoid = as.integer(geoid)) %>%
+  group_by(geoid) %>%
+  reframe(estimate = sum(estimate, na.rm=TRUE),
+          moe = )
+
+postpoptotal = left_join()
+
+#should be zero:
+#sum(capop$estimate) - sum(postpoptotal$estimate)
+
 #### CDC STATE LEVEL estimates for CA by sex and age (3 categories match with CTIS data) ####
-cdc = read.csv("Aja/COVID_Behaviors/data/COVID-19_Vaccination_Age_and_Sex_Trends_in_the_United_States__National_and_Jurisdictional.csv")
+cdc = fread(here("data/cdc_data/COVID-19_Vaccination_Age_and_Sex_Trends_in_the_United_States__National_and_Jurisdictional.csv"))
 
 cdc = cdc %>% 
   clean_names() %>%
@@ -59,13 +74,15 @@ cdc = cdc %>%
                          str_detect(demographic_category, "65+") ~ 3)) %>%
   select(date, sex, age, administered_dose1) %>%
   group_by(date, sex, age) %>%
-  summarize(sex=sex,
-            age=age,
-            administered_dose1 = sum(administered_dose1)) %>%
+  reframe(administered_dose1 = sum(administered_dose1)) %>%
   distinct() %>%
   na.omit() 
 
-#this is produced by rolling up the county-level pop estimates in this case because of the bym2 on county
+glimpse(cdc)
+sum(cdc$administered_dose1)
+
+#this is produced by rolling up the county-level pop estimates in this 
+#case because of the bym2 on county
 cdc = cdc %>%
   group_by(date,sex,age) %>%
   mutate(total_pop = sum(capop$estimate),
@@ -74,12 +91,11 @@ cdc = cdc %>%
   ungroup () %>%
   mutate(popest = sum(administered_dose1))
 
-# glimpse(cdc)
-# cdc = write.csv(cdc, file = "Aja/COVID_Behaviors/data/smrp/ch2_diss_tables/table4_cdc_baseline_data.csv")
+cdc = write.csv(cdc, file = "Aja/COVID_Behaviors/data/smrp/ch2_diss_tables/table4_cdc_baseline_data.csv")
 
 #### load state of CA county vaccination data ####
-c = read.csv(here("Aja/COVID_Behaviors/data/smrp/COVID-19_Vaccinations_in_the_United_States_County.csv"))
-
+c = read.csv(here("data/cdc_data/COVID-19_Vaccinations_in_the_United_States_County.csv"))
+glimpse(c)
 c = c %>%
   clean_names() %>%
   filter(recip_state == "CA",
@@ -100,7 +116,7 @@ county.index = c %>%
 
 county.index = county.index %>% filter(fips != "UNK")
 
-write.csv(c_count, file = here("/Users/Aja/Documents/R Directories/NSF_RAPID_COVID19_Survey/Aja/COVID_Behaviors/data/smrp/ch2_diss_tables/table5_county_counts_cdc.csv"))
+write.csv(c_count, file = here("data/results/tables/table5_county_counts_cdc.csv"))
 
 ####model results: 3.1.2. binomial iid county rw1 age ####
 iid.county.f = read.csv(here("Aja/COVID_Behaviors/data/smrp/indirect_estimates/mrp_estimates_vax_rw1_age_f_iidcounty.csv"))
