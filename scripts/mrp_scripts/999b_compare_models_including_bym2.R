@@ -11,7 +11,7 @@
 
 pacman::p_load(tidyverse, ggplot2, here, tidycensus, tigris, janitor, viridis,data.table)
 
-here::i_am("scripts/999b_compare_models_including_bym2.R")
+here::i_am("scripts/mrp_scripts/999b_compare_models_including_bym2.R")
 
 options(tigris_use_cache = TRUE)
 options(scipen=999)

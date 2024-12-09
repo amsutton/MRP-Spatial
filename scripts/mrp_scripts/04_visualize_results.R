@@ -264,7 +264,8 @@ dat.state %>%
       scale_x_discrete(labels = ~ str_wrap(.x, 10)) +
       scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, by = 0.1)) +
       scale_linetype_discrete(name = "") +
-      theme(axis.text.x = element_text(vjust = 0.5, hjust = 1,angle = 10),
+      theme(
+        #axis.text.x = element_text(vjust = 0.5, hjust = 1,angle = 10),
             legend.spacing = unit(1, 'cm'),
             legend.position="bottom") 
   # + 
@@ -358,7 +359,8 @@ nonspatial_statelevel_order = c("rw1 age iid county",
     scale_x_discrete(labels = ~ str_wrap(.x, 10)) +
     scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, by = 0.1)) +
     scale_linetype_discrete(name = "") +
-    theme(axis.text.x = element_text(vjust = 0.5, hjust = 1),
+    theme(
+      #axis.text.x = element_text(vjust = 0.5, hjust = 1),
           legend.spacing = unit(1, 'cm'),
           legend.position="bottom") + #+
   #   scale_color_manual(values = c("#7ad151",
@@ -410,7 +412,8 @@ dat.state.demog %>%
   scale_x_discrete(labels = ~ str_wrap(.x, 10)) +
   scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, by = 0.1)) +
   scale_linetype_discrete(name = "") +
-  theme(axis.text.x = element_text(vjust = 0.5, hjust = 1),
+  theme(
+    #axis.text.x = element_text(vjust = 0.5, hjust = 1),
         legend.spacing = unit(1, 'cm'),
         legend.position="bottom") + #+
   #   scale_color_manual(values = c("#7ad151",
@@ -450,7 +453,8 @@ dat.state %>%
   scale_x_discrete(labels = ~ str_wrap(.x, 10)) +
   scale_y_continuous(limits = c(0, 1), breaks = seq(0, 1, by = 0.1)) +
   scale_linetype_discrete(name = "") +
-  theme(axis.text.x = element_text(vjust = 0.5, hjust = 1, angle = 10),
+  theme(
+    #axis.text.x = element_text(vjust = 0.5, hjust = 1, angle = 10),
         legend.spacing = unit(1, 'cm'),
         legend.position="bottom") 
 
@@ -773,12 +777,18 @@ ggsave(file = here(paste0("plots/county_level/results_proportion_countylevel.pdf
 dat.county = dat.county %>%
   mutate(prop = round(prop,3),
          proplw = round(proplw,3),
-         propup = round(propup,3))
+         propup = round(propup,3)) %>%
+  arrange(type,name,model_name) %>%
+  select(type,name,model_name,prop,proplw,propup)
 
 dat.state = dat.state %>%
   mutate(prop = round(prop,3),
          proplw = round(proplw,3),
-         propup = round(propup,3))
+         propup = round(propup,3)) %>%
+  arrange(type,model_name)  %>%
+  select(type,model_name,prop,proplw,propup)
 
 write.csv(dat.county,here("results/tables/county_regression_results.csv"))
 write.csv(dat.state,here("results/tables/state_regression_results.csv"))
+
+

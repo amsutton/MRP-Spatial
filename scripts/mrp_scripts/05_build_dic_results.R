@@ -28,8 +28,11 @@ dat = dat %>%
           id =  as.character(ex_between(id,"model_results/","sex"))) %>%
 filter(!str_detect(variable,"fixed"))
 
+#save a legible version of the regression results
+glimpse(dat)
+
 dat = dat %>% 
-  select(id,sex,dic) %>% 
+  select(id,sex,dic,mean:kld) %>% 
   mutate(sex = as.double(sex)) %>%
   filter(!str_detect(id,"fixed")) %>%
   distinct()
@@ -38,8 +41,38 @@ dat = left_join(dat,models, by = c("id"="specs"))
 
 dat = dat %>% mutate(dic = round(dic, 2),
                      sex = ifelse(sex == 0, "female","male"))
+glimpse(dat)
+dat = dat %>%
+  mutate(mean = round(mean,3),
+         sd = round(sd,3),
+         `0.025quant` = round(`0.025quant`,3),
+         `0.5quant` = round(`0.5quant`,3),
+         `0.975quant` = round(`0.975quant`,3),
+         mode = round(mode,3))
+table(dat$id)
+dat= 
+dat%>%
+  filter(str_detect(id,"bym2|iid_xfips")) %>%
+  mutate(type = case_when(str_detect(id, "bym2") ~ "Spatial",
+                          str_detect(id, "iid_xfips") ~ "Non-Spatial")) %>%
+  select(model_name,-id,everything())
+dat = dat %>% 
+  select(type,everything(),-id) 
 
+dat = dat %>% arrange(type)
+  
+#save regression results for paper before filtering to DIC table details
+write.csv(dat,here("results/tables/inla_regression_results.csv"))
+glimpse(dat)
 dat = dat %>% select(model_name, sex, dic, id) %>% arrange(sex,dic)
-dat %>% filter(!str_detect(id,"bym2_xfips")) %>% view
 
-write.csv(dat, file = here("data/Table_model_dic_results.csv"))
+
+dat = dat %>%
+  filter(str_detect(id,"xfips|bym2"),
+         !str_detect(id,"bym2_xfips")) %>%
+  select(-id)
+
+write.csv(dat, file = here("results/tables/table3_model_dic_results.csv"))
+
+
+

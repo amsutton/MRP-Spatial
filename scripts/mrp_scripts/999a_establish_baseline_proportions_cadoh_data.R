@@ -12,7 +12,7 @@
 
 pacman::p_load(tidyverse, ggplot2, here, tidycensus, tigris, janitor, viridis, data.table)
 
-here::i_am("scripts/999a_establish_baseline_proportions_cadoh_data.R")
+here::i_am("scripts/mrp_scripts/999a_establish_baseline_proportions_cadoh_data.R")
 
 options(tigris_use_cache = TRUE)
 tidycensus::census_api_key(Sys.getenv("CENSUS_API_KEY"), overwrite = FALSE, install = FALSE)

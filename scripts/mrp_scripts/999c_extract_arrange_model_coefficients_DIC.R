@@ -2,7 +2,7 @@
 ###  extract coefficients and DIC from models ####
 pacman::p_load(tidyverse, here, janitor)
 
-here::i_am("scripts/999c_extract_arrange_model_coefficients_DIC.R")
+here::i_am("scripts/mrp_scripts/999c_extract_arrange_model_coefficients_DIC.R")
 
 #3.1.1. state level binomial rw1 by age
 m1a = read.csv(file = here("data/mrp/ch2_diss_tables/model_results_tables/model_results_parametersrw1_age_m.csv"))
