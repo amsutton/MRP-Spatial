@@ -8,7 +8,7 @@
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(tidyverse, here, INLA, SUMMER,data.table,beepr)
 
-here::i_am("scripts/03_run_models.R")
+here::i_am("scripts/mrp_scripts/03_run_models.R")
 
 #### Functions ####
 
@@ -254,8 +254,9 @@ run_save_model = function(mf,dat,sex_spec) {
                control.family=list(link='logit'),
                control.compute = list(config=TRUE,
                                       return.marginals.predictor=TRUE,
-                                      dic = TRUE),
-               control.predictor = list(compute=TRUE), #would need expit it
+                                      dic = TRUE,
+                                      cpo = TRUE),
+               control.predictor = list(compute=TRUE), #need expit it
                verbose = FALSE)
 
   ###Not sure about this code chunk
@@ -311,11 +312,21 @@ run_save_model = function(mf,dat,sex_spec) {
     
   
   model.results = rbind(model.fixed, model.random.age,model.random.edu,model.random.xfips)
+  model.results$dic = NA
   model.results$dic = model$dic$dic
+  model.results$lcpo = sum(-log(model$cpo$cpo), na.rm = TRUE)
+  failure_check = sum(model$cpo$failure, na.rm = TRUE)
   
+  if (failure_check == 0) {
+    print(paste0("model ",x,": no failures in log-cpo"))
   rownames(model.results) = NULL
   
   fwrite(model.results, file = here(paste0("data/raw_model_output/model_results/",specs,"sex",sex_spec,".csv")))
+  }
+  
+  if (failure_check > 0) {
+    stop("log-cpo failure")
+  }
   
   }
 
@@ -405,7 +416,7 @@ poststratify = function(sims,pred_dat,sex_spec){
 
   temp = pred_dat %>% select(-vax) 
 
-  #mean sim estimation * estimate in stratum /estimate in zcta
+  #mean sim estimation * estimate in stratum /estimate in county
   rowmedians <- sims %>%
     group_by(across(colnames(temp))) %>%
     pivot_longer(cols = sim_1:sim_1000, 
@@ -413,31 +424,33 @@ poststratify = function(sims,pred_dat,sex_spec){
                  values_to = "sim_prob")  %>%
     ungroup()
 
-  rowmedians <- rowmedians %>%
-    mutate(weight = estimate/N,
-           ps_prob = sim_prob * weight) %>% #poststrat prob = posterior prob * proportion of pop in strata
-    group_by(across(colnames(temp))) %>% 
-    mutate(median_ps_prob = median(ps_prob),
-           lw_ps_prob = quantile(ps_prob, probs = c(0.025)),
-           up_ps_prob = quantile(ps_prob, probs = c(0.975))) %>% 
-    dplyr::select(colnames(temp), median_ps_prob, estimate, 
-                  N, lw_ps_prob, up_ps_prob) %>%
-    distinct() %>%
-    ungroup() %>%
-    rename(strata_pop = estimate)
+  rowmedians <-
+    rowmedians %>%
+      mutate(weight = estimate/N,
+             sex_specific_n_i = N) %>% # N = sex-specific n_i
+      group_by(across(colnames(temp))) %>%
+      mutate(y = sim_prob * estimate, #y_ijk
+             median_y = round(median(y)), #y_ijk med
+             lw_y = round(quantile(y, probs = c(0.025))),#y_ijk lo
+             up_y = round(quantile(y, probs = c(0.975)))) %>% #y_ijk hi
+      dplyr::select(colnames(temp), median_y, estimate,
+                    N, lw_y, up_y,sex_specific_n_i) %>%
+      distinct() %>%
+      ungroup() %>%
+      rename(strata_pop = estimate)
   
-  rowmedians <- rowmedians %>%
-    mutate(strata_pop_est = N * median_ps_prob,
-           strata_pop_lw.ci = N * lw_ps_prob,
-           strata_pop_up.ci = N * up_ps_prob) %>% 
-    group_by(across(colnames(temp))) %>%
-    mutate(sae_estimate = as.integer(sum(strata_pop_est)),
-           sae_lw.ci = as.integer(sum(strata_pop_lw.ci)),
-           sae_up.ci = as.integer(sum(strata_pop_up.ci))) %>%
-    ungroup() %>%
-    distinct() %>%
-    mutate(model = specs)
-  
+  rowmedians <- 
+    rowmedians %>%
+      mutate(strata_pop_est = median_y/N, #now calculate the proportions in the county
+             strata_pop_lw.ci = lw_y/N,
+             strata_pop_up.ci = up_y/N) %>%
+      #group_by(across(colnames(temp))) %>%
+      # mutate(sae_estimate = as.integer(sum(strata_pop_est)),
+      #        sae_lw.ci = as.integer(sum(strata_pop_lw.ci)),
+      #        sae_up.ci = as.integer(sum(strata_pop_up.ci))) %>%
+      # ungroup() %>%
+      distinct() %>%
+      mutate(model = specs)
   
   fwrite(rowmedians, file = here(paste0("data/indirect_estimates/sex_specific_estimates/",state_choice,"_mrp_indirect_estimates_vax_",specs,"_sex",sex_spec,".csv")))
   
@@ -455,14 +468,17 @@ run_sex_specific_steps = function(dat,post,mf,poststrat_vars,pred_dat,sex_spec,x
   
   pred_dat = pred_dat %>%
     filter(sex == sex_spec)
-  
+
   #warning about "identity link will be used to compute the fitted values 
   #for NA data" is fine. We leave warnings verbose to catch other issues.
   run_save_model(mf,dat,sex_spec)
+  gc()
   print(paste0("model ",x,": done running and saving model"))
   posterior_draw(model,post,poststrat_vars,pred_dat,dat,sex_spec)
+  gc()
   print(paste0("model ",x,": done posterior draw"))
   poststratify(sims,pred_dat,sex_spec)
+  gc()
   print(paste0("model ",x,": done poststratifying"))
   
 }
@@ -470,6 +486,7 @@ run_sex_specific_steps = function(dat,post,mf,poststrat_vars,pred_dat,sex_spec,x
 run_analysis = function(model_formulae,mod,specs,state_choice,poststrat_vars) {
 
     prepare_data(dat,post,poststrat_vars)
+    gc()
     print(paste0("model ",x,": done preparing data"))
     #build and run sex-specific models, run poststrat, and save the output
     sex_list = list(1,0)
@@ -513,6 +530,7 @@ models$poststrat_vars =
 #NB: each model runs twice because we run each model for each sex independently.
 #Runtime for the most complex models is less than 50 seconds on 
 #a Macbook Pro 2.4 GHz 8-Core Intel Core i9 with 32GB of memory.
+
 for (x in 1:nrow(models)) {
 
   print(paste("***","model",x,"***",sep=" "))
@@ -521,8 +539,9 @@ for (x in 1:nrow(models)) {
   
   # mod = models[40,]
   # mf = as.formula(model_formulae[[40]])
-  mod = models[x,]
+  mod = models[x,] 
   mf = as.formula(model_formulae[[x]])
+  
   specs = as.character(mod$specs)
   poststrat_vars =
     mod$poststrat_vars %>%
